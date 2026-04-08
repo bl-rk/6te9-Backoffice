@@ -1,0 +1,8 @@
+
+{
+  "name": "6te9 Admin Panel",
+  "description": "A minimalist, high-performance back-office system for managing Tech, Media, and Culinary marketplaces with robust filtering and category-specific management.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

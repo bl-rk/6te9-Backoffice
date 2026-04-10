@@ -1,4 +1,3 @@
-
 import React from 'react';
 import {
   LayoutDashboard,
@@ -11,7 +10,8 @@ import {
   LogOut,
   MessageSquare,
   Users,
-  Newspaper
+  Newspaper,
+  ShieldCheck
 } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { MarketplaceCategory, ViewType, User } from '../types';
@@ -49,8 +49,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   return (
     <aside className="w-64 border-r border-zinc-200 flex flex-col h-full bg-white select-none">
       <div className="p-8 pb-4">
-        <h1 className="text-2xl font-black tracking-tighter uppercase italic">6te9</h1>
-        <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest mt-1">Admin Panel v1.0</p>
+        <img src="/logo.svg" alt="6TE9" className="w-8 h-8 object-contain mb-2" />
+        <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">Admin Panel v1.0</p>
       </div>
 
       <nav className="flex-1 px-4 mt-8 space-y-8 overflow-y-auto no-scrollbar">
@@ -62,8 +62,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                 key={item.id}
                 to={item.id === 'DASHBOARD' ? '/' : `/${item.id.toLowerCase()}`}
                 className={({ isActive }) => `w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-bold transition-all ${isActive
-                    ? 'bg-black text-white shadow-xl shadow-zinc-200'
-                    : 'text-zinc-500 hover:bg-zinc-50 hover:text-black'
+                  ? 'bg-black text-white shadow-xl shadow-zinc-200'
+                  : 'text-zinc-500 hover:bg-zinc-50 hover:text-black'
                   }`}
               >
                 {item.icon}
@@ -81,8 +81,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                 key={item.id}
                 to={item.path}
                 className={({ isActive }) => `w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-bold transition-all ${isActive
-                    ? 'bg-black text-white shadow-xl shadow-zinc-200'
-                    : 'text-zinc-500 hover:bg-zinc-50 hover:text-black'
+                  ? 'bg-black text-white shadow-xl shadow-zinc-200'
+                  : 'text-zinc-500 hover:bg-zinc-50 hover:text-black'
                   }`}
               >
                 {item.icon}
@@ -92,8 +92,8 @@ const Sidebar: React.FC<SidebarProps> = ({
             <NavLink
               to="/news"
               className={({ isActive }) => `w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-bold transition-all ${isActive
-                  ? 'bg-black text-white shadow-xl shadow-zinc-200'
-                  : 'text-zinc-500 hover:bg-zinc-50 hover:text-black'
+                ? 'bg-black text-white shadow-xl shadow-zinc-200'
+                : 'text-zinc-500 hover:bg-zinc-50 hover:text-black'
                 }`}
             >
               <Newspaper className="w-5 h-5" />
@@ -110,8 +110,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                 key={item.id}
                 to={item.path}
                 className={({ isActive }) => `w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-bold transition-all ${isActive
-                    ? 'bg-black text-white shadow-xl shadow-zinc-200'
-                    : 'text-zinc-500 hover:bg-zinc-50 hover:text-black'
+                  ? 'bg-black text-white shadow-xl shadow-zinc-200'
+                  : 'text-zinc-500 hover:bg-zinc-50 hover:text-black'
                   }`}
               >
                 {item.icon}
@@ -129,8 +129,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                 key={item.id}
                 to={item.path}
                 className={({ isActive }) => `w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-bold transition-all ${isActive
-                    ? 'bg-black text-white shadow-xl shadow-zinc-200'
-                    : 'text-zinc-500 hover:bg-zinc-50 hover:text-black'
+                  ? 'bg-black text-white shadow-xl shadow-zinc-200'
+                  : 'text-zinc-500 hover:bg-zinc-50 hover:text-black'
                   }`}
               >
                 {item.icon}
@@ -139,6 +139,24 @@ const Sidebar: React.FC<SidebarProps> = ({
             ))}
           </div>
         </div>
+
+        {user?.role === 'SUPER_ADMIN' && (
+          <div>
+            <p className="px-4 text-[10px] font-black text-zinc-300 uppercase tracking-widest mb-4">Administration</p>
+            <div className="space-y-1">
+              <NavLink
+                to="/users"
+                className={({ isActive }) => `w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-bold transition-all ${isActive
+                  ? 'bg-black text-white shadow-xl shadow-zinc-200'
+                  : 'text-zinc-500 hover:bg-zinc-50 hover:text-black'
+                  }`}
+              >
+                <ShieldCheck className="w-5 h-5" />
+                Identity Mgt
+              </NavLink>
+            </div>
+          </div>
+        )}
       </nav>
 
       <div className="p-4 mt-auto border-t border-zinc-100 bg-zinc-50/30">

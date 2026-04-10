@@ -11,24 +11,53 @@ import {
     X,
     Save,
     Trash2,
-    Download
+    Download,
+    ChevronDown,
+    ChevronUp
 } from 'lucide-react';
 import { LeadStage, Lead, Brand } from '../types';
 import { BRANDS } from '../constants';
 import BulkUploadModal from './modals/BulkUploadModal';
+import GenericConfirmModal from './modals/GenericConfirmModal';
+import { leadService } from '../services/leadService';
+import { useEffect } from 'react';
 
-const MOCK_LEADS: Lead[] = [
-    { id: '1', mobile: '+234 801 234 5678', email: 'john@example.com', brand: 'TECH', category: 'Laptops', stage: LeadStage.INGESTION, info: 'Interested in bulk purchase of MacBooks', createdAt: new Date().toISOString() },
-    { id: '2', mobile: '+234 902 345 6789', email: 'sarah@design.co', brand: 'MEDIA', category: 'Printing', stage: LeadStage.CONTACTED, info: 'Inquired about large format banners', createdAt: new Date().toISOString() },
-    { id: '3', mobile: '+234 703 456 7890', email: 'mike@blxrk.com', brand: 'BLXRK', category: 'Real Estate', stage: LeadStage.FOLLOW_UP, info: 'Sent property portfolio, waiting for feedback', createdAt: new Date().toISOString() },
-];
+const LEADS_PER_PAGE = 5;
 
 const LeadManagement: React.FC = () => {
-    const [leads, setLeads] = useState<Lead[]>(MOCK_LEADS);
+    const [leads, setLeads] = useState<Lead[]>([]);
+    const [loading, setLoading] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
     const [editingLead, setEditingLead] = useState<Lead | null>(null);
     const [formData, setFormData] = useState<Partial<Lead>>({});
+    const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
+    // Pagination state per stage
+    const [pagination, setPagination] = useState<Record<string, number>>(() => {
+        const init: Record<string, number> = {};
+        Object.values(LeadStage).forEach(s => init[s] = 1);
+        return init;
+    });
+
+    // Card collapse state (IDs of collapsed leads)
+    const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
+
+    useEffect(() => {
+        fetchLeads();
+    }, []);
+
+    const fetchLeads = async () => {
+        setLoading(true);
+        try {
+            const data = await leadService.getLeads();
+            setLeads(data);
+        } catch (err) {
+            console.error('Failed to fetch leads:', err);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const stages = Object.values(LeadStage);
 
@@ -58,37 +87,74 @@ const LeadManagement: React.FC = () => {
         setIsModalOpen(true);
     };
 
-    const handleSave = (e: React.FormEvent) => {
+    const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (editingLead) {
-            setLeads(prev => prev.map(l => l.id === editingLead.id ? { ...l, ...formData } as Lead : l));
-        } else {
-            const newLead: Lead = {
-                ...formData as Lead,
-                id: Math.random().toString(36).substr(2, 9),
-                createdAt: new Date().toISOString()
-            };
-            setLeads(prev => [newLead, ...prev]);
+        try {
+            const saved = await leadService.saveLead({
+                ...formData,
+                id: editingLead?.id
+            });
+            if (editingLead) {
+                setLeads(prev => prev.map(l => l.id === saved.id ? saved : l));
+            } else {
+                setLeads(prev => [saved, ...prev]);
+            }
+            setIsModalOpen(false);
+        } catch (err) {
+            alert('Failed to synchronize lead record.');
         }
-        setIsModalOpen(false);
     };
 
-    const moveLead = (id: string, direction: 'forward' | 'backward') => {
-        setLeads(prev => prev.map(l => {
-            if (l.id !== id) return l;
-            const currentIndex = stages.indexOf(l.stage);
-            const nextIndex = direction === 'forward' ? currentIndex + 1 : currentIndex - 1;
-            if (nextIndex >= 0 && nextIndex < stages.length) {
-                return { ...l, stage: stages[nextIndex] };
+    const moveLead = async (id: string, direction: 'forward' | 'backward') => {
+        const lead = leads.find(l => l.id === id);
+        if (!lead) return;
+
+        const currentIndex = stages.indexOf(lead.stage);
+        const nextIndex = direction === 'forward' ? currentIndex + 1 : currentIndex - 1;
+
+        if (nextIndex >= 0 && nextIndex < stages.length) {
+            const nextStage = stages[nextIndex];
+            try {
+                const updated = await leadService.updateLeadStage(id, nextStage);
+                setLeads(prev => prev.map(l => l.id === id ? updated : l));
+            } catch (err) {
+                alert('Failed to transition lead stage.');
             }
-            return l;
-        }));
+        }
     };
 
     const deleteLead = (id: string) => {
-        if (confirm('Delete this lead permanently?')) {
+        setConfirmDeleteId(id);
+    };
+
+    const handleConfirmDelete = async () => {
+        if (!confirmDeleteId) return;
+        const id = confirmDeleteId;
+        try {
+            await leadService.deleteLead(id);
             setLeads(prev => prev.filter(l => l.id !== id));
+            setCollapsedIds(prev => {
+                const next = new Set(prev);
+                next.delete(id);
+                return next;
+            });
+            setConfirmDeleteId(null);
+        } catch (err) {
+            alert('Failed to abolish lead record.');
         }
+    };
+
+    const toggleCollapse = (id: string) => {
+        setCollapsedIds(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    };
+
+    const setPage = (stage: string, page: number) => {
+        setPagination(prev => ({ ...prev, [stage]: page }));
     };
 
     return (
@@ -124,79 +190,123 @@ const LeadManagement: React.FC = () => {
 
             {/* Kanban Board */}
             <div className="flex gap-6 overflow-x-auto pb-6 no-scrollbar min-h-[70vh]">
-                {stages.map(stage => (
-                    <div key={stage} className="flex-shrink-0 w-80 bg-zinc-50/50 rounded-[2.5rem] border border-zinc-100 flex flex-col">
-                        <div className="p-6 border-b border-zinc-100 flex items-center justify-between">
-                            <h3 className="text-[10px] font-black uppercase tracking-widest text-black/40 italic">{stage}</h3>
-                            <span className="px-2 py-0.5 rounded-full bg-white border border-zinc-100 text-[10px] font-black">{leads.filter(l => l.stage === stage).length}</span>
-                        </div>
-                        <div className="flex-1 p-4 space-y-4 overflow-y-auto">
-                            {leads.filter(l => l.stage === stage).map(lead => (
-                                <div key={lead.id} className="bg-white p-5 rounded-3xl border border-zinc-100 shadow-sm hover:shadow-md transition-all group relative">
-                                    <div className="flex items-start justify-between mb-4">
-                                        <span className="px-2 py-0.5 bg-zinc-100 rounded text-[8px] font-black uppercase tracking-tighter">{lead.brand}</span>
-                                        <div className="flex items-center gap-1">
-                                            <button
-                                                onClick={() => openModal(lead)}
-                                                className="p-1.5 hover:bg-zinc-50 rounded-lg text-zinc-300 hover:text-black transition-colors"
-                                            >
-                                                <Edit2 className="w-3 h-3" />
-                                            </button>
-                                            <button
-                                                onClick={() => deleteLead(lead.id)}
-                                                className="p-1.5 hover:bg-zinc-50 rounded-lg text-zinc-300 hover:text-red-500 transition-colors"
-                                            >
-                                                <Trash2 className="w-3 h-3" />
-                                            </button>
-                                        </div>
-                                    </div>
+                {stages.map(stage => {
+                    const stageLeads = leads.filter(l => l.stage === stage);
+                    const totalPages = Math.ceil(stageLeads.length / LEADS_PER_PAGE);
+                    const currentPage = pagination[stage] || 1;
+                    const paginatedLeads = stageLeads.slice((currentPage - 1) * LEADS_PER_PAGE, currentPage * LEADS_PER_PAGE);
 
-                                    <div className="space-y-3">
-                                        <div className="flex items-center gap-2 text-zinc-500">
-                                            <Phone className="w-3 h-3" />
-                                            <p className="text-[10px] font-bold">{lead.mobile}</p>
-                                        </div>
-                                        <div className="flex items-center gap-2 text-zinc-500">
-                                            <Mail className="w-3 h-3" />
-                                            <p className="text-[10px] font-bold truncate">{lead.email}</p>
-                                        </div>
-                                        <div className="pt-3 border-t border-zinc-50">
-                                            <div className="flex items-start gap-2">
-                                                <Info className="w-3 h-3 text-zinc-300 mt-0.5" />
-                                                <p className="text-[10px] text-zinc-400 font-medium leading-relaxed italic line-clamp-2">{lead.info}</p>
+                    return (
+                        <div key={stage} className="flex-shrink-0 w-80 bg-zinc-50/50 rounded-[2.5rem] border border-zinc-100 flex flex-col max-h-[75vh]">
+                            <div className="p-6 border-b border-zinc-100 flex items-center justify-between">
+                                <h3 className="text-[10px] font-black uppercase tracking-widest text-black/40 italic">{stage}</h3>
+                                <span className="px-2 py-0.5 rounded-full bg-white border border-zinc-100 text-[10px] font-black">{stageLeads.length}</span>
+                            </div>
+                            <div className="flex-1 p-4 space-y-4 overflow-y-auto no-scrollbar">
+                                {paginatedLeads.map(lead => {
+                                    const isCollapsed = collapsedIds.has(lead.id);
+
+                                    return (
+                                        <div key={lead.id} className="bg-white p-5 rounded-3xl border border-zinc-100 shadow-sm hover:shadow-md transition-all group relative">
+                                            <div className="flex items-start justify-between mb-2">
+                                                <span className="px-2 py-0.5 bg-zinc-100 rounded text-[8px] font-black uppercase tracking-tighter">{lead.brand}</span>
+                                                <div className="flex items-center gap-1">
+                                                    <button
+                                                        onClick={() => toggleCollapse(lead.id)}
+                                                        className="p-1.5 hover:bg-zinc-50 rounded-lg text-zinc-300 hover:text-black transition-colors"
+                                                    >
+                                                        {isCollapsed ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />}
+                                                    </button>
+                                                    <button
+                                                        onClick={() => openModal(lead)}
+                                                        className="p-1.5 hover:bg-zinc-50 rounded-lg text-zinc-300 hover:text-black transition-colors"
+                                                    >
+                                                        <Edit2 className="w-3 h-3" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => deleteLead(lead.id)}
+                                                        className="p-1.5 hover:bg-zinc-50 rounded-lg text-zinc-300 hover:text-red-500 transition-colors"
+                                                    >
+                                                        <Trash2 className="w-3 h-3" />
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <p className="text-xs font-black uppercase tracking-tight mb-2 truncate">{lead.category}</p>
+
+                                            {!isCollapsed && (
+                                                <div className="space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
+                                                    <div className="flex items-center gap-2 text-zinc-500">
+                                                        <Phone className="w-3 h-3" />
+                                                        <p className="text-[10px] font-bold">{lead.mobile}</p>
+                                                    </div>
+                                                    <div className="flex items-center gap-2 text-zinc-500">
+                                                        <Mail className="w-3 h-3" />
+                                                        <p className="text-[10px] font-bold truncate">{lead.email}</p>
+                                                    </div>
+                                                    <div className="pt-3 border-t border-zinc-50">
+                                                        <div className="flex items-start gap-2">
+                                                            <Info className="w-3 h-3 text-zinc-300 mt-0.5" />
+                                                            <p className="text-[10px] text-zinc-400 font-medium leading-relaxed italic line-clamp-3">{lead.info}</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Bidirectional Movement */}
+                                            <div className="mt-4 pt-4 border-t border-zinc-50 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button
+                                                    disabled={stages.indexOf(stage) === 0}
+                                                    onClick={() => moveLead(lead.id, 'backward')}
+                                                    className="p-1.5 hover:bg-zinc-50 rounded-lg text-black transition-colors disabled:opacity-10"
+                                                >
+                                                    <ChevronLeft className="w-4 h-4" />
+                                                </button>
+                                                <p className="text-[8px] font-black uppercase tracking-widest text-zinc-300">Update Stage</p>
+                                                <button
+                                                    disabled={stages.indexOf(stage) === stages.length - 1}
+                                                    onClick={() => moveLead(lead.id, 'forward')}
+                                                    className="p-1.5 hover:bg-zinc-50 rounded-lg text-black transition-colors disabled:opacity-10"
+                                                >
+                                                    <ChevronRight className="w-4 h-4" />
+                                                </button>
                                             </div>
                                         </div>
+                                    );
+                                })}
+                                {stageLeads.length === 0 && (
+                                    <div className="py-20 text-center">
+                                        <Users className="w-8 h-8 text-zinc-100 mx-auto mb-2" />
+                                        <p className="text-[8px] font-black uppercase tracking-widest text-zinc-300">Station Empty</p>
                                     </div>
+                                )}
+                            </div>
 
-                                    {/* Bidirectional Movement */}
-                                    <div className="mt-4 pt-4 border-t border-zinc-50 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button
-                                            disabled={stages.indexOf(stage) === 0}
-                                            onClick={() => moveLead(lead.id, 'backward')}
-                                            className="p-1.5 hover:bg-zinc-50 rounded-lg text-black transition-colors disabled:opacity-10"
-                                        >
-                                            <ChevronLeft className="w-4 h-4" />
-                                        </button>
-                                        <p className="text-[8px] font-black uppercase tracking-widest text-zinc-300">Update Stage</p>
-                                        <button
-                                            disabled={stages.indexOf(stage) === stages.length - 1}
-                                            onClick={() => moveLead(lead.id, 'forward')}
-                                            className="p-1.5 hover:bg-zinc-50 rounded-lg text-black transition-colors disabled:opacity-10"
-                                        >
-                                            <ChevronRight className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
-                            {leads.filter(l => l.stage === stage).length === 0 && (
-                                <div className="py-20 text-center">
-                                    <Users className="w-8 h-8 text-zinc-100 mx-auto mb-2" />
-                                    <p className="text-[8px] font-black uppercase tracking-widest text-zinc-300">Station Empty</p>
+                            {/* Column Pagination */}
+                            {totalPages > 1 && (
+                                <div className="p-4 border-t border-zinc-100 bg-white/50 rounded-b-[2.5rem] flex items-center justify-between">
+                                    <button
+                                        disabled={currentPage === 1}
+                                        onClick={() => setPage(stage, currentPage - 1)}
+                                        className="p-2 hover:bg-zinc-100 rounded-xl transition-all disabled:opacity-20"
+                                    >
+                                        <ChevronLeft className="w-4 h-4" />
+                                    </button>
+                                    <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                                        {currentPage} / {totalPages}
+                                    </p>
+                                    <button
+                                        disabled={currentPage === totalPages}
+                                        onClick={() => setPage(stage, currentPage + 1)}
+                                        className="p-2 hover:bg-zinc-100 rounded-xl transition-all disabled:opacity-20"
+                                    >
+                                        <ChevronRight className="w-4 h-4" />
+                                    </button>
                                 </div>
                             )}
                         </div>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
 
             {/* Manual Ingestion / Edit Modal */}
@@ -307,6 +417,15 @@ const LeadManagement: React.FC = () => {
                     console.log(`Ingested ${count} leads`);
                     setIsBulkModalOpen(false);
                 }}
+            />
+
+            <GenericConfirmModal
+                isOpen={!!confirmDeleteId}
+                onClose={() => setConfirmDeleteId(null)}
+                onConfirm={handleConfirmDelete}
+                title="Delete Lead Record"
+                message="Are you sure you want to permanently remove this lead from the pipeline? This action cannot be reversed."
+                confirmLabel="Delete Lead"
             />
         </div>
     );

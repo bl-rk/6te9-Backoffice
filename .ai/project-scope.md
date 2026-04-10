@@ -10,8 +10,8 @@ The `6te9-admin-panel` is a React-based single-page application (SPA) acting as 
 
 ## Core Domain Models
 The marketplace is divided into three distinct categories, each with highly specialized data schemas:
-1. **TECH**: Electronics, gadgets, and computing. Features attributes like condition, brand, specs, weight, and warranty details.
-2. **MEDIA**: Custom printed materials, signage, and packaging. Features customization options, lead time, MOQ, dimensions, and production methods.
+1. **TECH**: Electronics, gadgets, and computing. Features attributes like condition, brand, specs (Storage, RAM, etc.), weight, warranty details, Lagos delivery, and original packaging.
+2. **MEDIA**: Custom printed materials, signage, and packaging. Features customization options, lead time, MOQ, dimensions, production methods, specs (Finish, Size, Quantity), Lagos delivery, and original packaging.
 3. **CULINARY**: Food, spices, and ingredients. Features dietary tags, spice level, ingredients, allergens, preparation, and nutritional info.
 
 ## Features & Capabilities
@@ -19,6 +19,7 @@ The marketplace is divided into three distinct categories, each with highly spec
 2. **Inventory Visibility**: Real-time tracking of item statuses (`DRAFT`, `PUBLISHED`, `ARCHIVED`).
 3. **Data Integrity**: Auditing built into item schemas (tracking created/updated/published timestamps and actors).
 4. **Platform Control**: Global modifiers like Maintenance Mode to lock down the interface to administrative actions only.
-5. **Lead Funnel Optimization**: Multi-stage Kanban board for managing relationships across Mon Biens, Tech, Media, and Blxrk brands.
+5. **Lead Funnel Optimization**: Multi-stage Kanban board for managing relationships across verticals. Features per-stage pagination and collapsible lead cards for dense information management.
 6. **Business Broadcasts**: Text-based CRUD engine for propagating news and promotional offers across verticals.
 7. **WhatsApp Business Engine**: Integrated API management for business interactions and real-time synchronization.
+8. **User Management & Identity Security**: Role-based access control (RBAC) featuring Super Admin privileges. Support for TOTP-based enrollment, user suspension, and credential resets.

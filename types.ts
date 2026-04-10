@@ -10,8 +10,17 @@ export enum ItemStatus {
   ARCHIVED = 'ARCHIVED'
 }
 
+export interface SpecValue {
+  value: string;
+  amount?: number;
+}
+
+export interface SpecEntry extends SpecValue {
+  key: string;
+}
+
 export interface KeyValueMap {
-  [key: string]: string | number | boolean;
+  [key: string]: string | number | boolean | SpecValue;
 }
 
 export interface AuditTrail {
@@ -31,9 +40,11 @@ export interface BaseItem {
   salePrice?: number;
   isOffer: boolean;
   description: string;
+  baseCategory: string;
   status: ItemStatus;
   images: string[];
-  availabilityStatus: 'In Stock' | 'Out of Stock' | 'Pre-order';
+  freeDeliveryLagos: boolean;
+  originalPackaging: boolean;
   audit: AuditTrail;
 }
 
@@ -41,7 +52,7 @@ export interface TechItem extends BaseItem {
   marketplace: MarketplaceCategory.TECH;
   categories: string[];
   type: string;
-  condition: 'New' | 'Refurbished' | 'Used';
+  condition: 'New' | 'Refurbished' | 'Used' | 'For Parts';
   brand: string;
   color: string;
   size: string;
@@ -50,8 +61,9 @@ export interface TechItem extends BaseItem {
   warranty: {
     hasWarranty: boolean;
     duration?: string;
+    warranty_months?: number;
   };
-  specs: KeyValueMap;
+  specs: SpecEntry[];
 }
 
 export interface MediaItem extends BaseItem {
@@ -75,6 +87,7 @@ export interface MediaItem extends BaseItem {
   minOrderQuantity: number;
   leadTime: number;
   packagingType: string;
+  specs: SpecEntry[];
 }
 
 export interface CulinaryItem extends BaseItem {
@@ -125,13 +138,22 @@ export interface NewsOffer {
   id: string;
   title: string;
   offerInfo: string;
+  category: MarketplaceCategory;
   validityPeriod: string;
   createdAt: string;
+}
+
+export enum UserStatus {
+  PENDING = 'PENDING',
+  ACTIVE = 'ACTIVE',
+  SUSPENDED = 'SUSPENDED'
 }
 
 export interface User {
   id: string;
   email: string;
-  role: 'ADMIN' | 'MANAGER' | 'EDITOR';
+  role: 'SUPER_ADMIN' | 'ADMIN' | 'MANAGER' | 'EDITOR';
   name: string;
+  status: UserStatus;
+  dateAdded: string;
 }

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Edit, Trash } from 'lucide-react';
 import { MarketplaceItem, ItemStatus } from '../types';
@@ -16,7 +15,8 @@ const ItemTable: React.FC<ItemTableProps> = ({ items, onEdit, onDelete }) => {
         <tr className="border-b border-zinc-100 bg-zinc-50/50">
           <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Item Details</th>
           <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Pricing</th>
-          <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Category</th>
+          <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Base Category</th>
+          <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Tags</th>
           <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Status</th>
           <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Last Updated</th>
           <th className="px-6 py-4"></th>
@@ -25,7 +25,7 @@ const ItemTable: React.FC<ItemTableProps> = ({ items, onEdit, onDelete }) => {
       <tbody className="divide-y divide-zinc-100">
         {items.length === 0 ? (
           <tr>
-            <td colSpan={6} className="px-6 py-12 text-center text-zinc-400 text-sm font-medium">
+            <td colSpan={7} className="px-6 py-12 text-center text-zinc-400 text-sm font-medium">
               No catalog entries found.
             </td>
           </tr>
@@ -48,7 +48,15 @@ const ItemTable: React.FC<ItemTableProps> = ({ items, onEdit, onDelete }) => {
                         <span className="px-1.5 py-0.5 bg-black text-white rounded text-[8px] font-black uppercase tracking-widest">OFFER</span>
                       )}
                     </div>
-                    <p className="text-xs text-zinc-400 font-mono mt-0.5">{item.sku}</p>
+                    <p className="text-xs text-zinc-400 font-mono mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis max-w-[120px]">
+                      {item.sku}
+                      <span className="mx-2 opacity-50">|</span>
+                      <span className="text-[10px] font-black uppercase text-black/40">
+                        {item.marketplace === 'TECH' && `${(item as any).brand || 'Standard'} ${(item as any).condition || ''}`}
+                        {item.marketplace === 'MEDIA' && `${(item as any).material || 'Generic'}`}
+                        {item.marketplace === 'CULINARY' && `${(item as any).cuisineType || 'Global'}`}
+                      </span>
+                    </p>
                   </div>
                 </div>
               </td>
@@ -65,27 +73,35 @@ const ItemTable: React.FC<ItemTableProps> = ({ items, onEdit, onDelete }) => {
                 </div>
               </td>
               <td className="px-6 py-4">
+                <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 bg-zinc-100 rounded-lg text-black">
+                  {item.baseCategory || 'UNCATEGORIZED'}
+                </span>
+              </td>
+              <td className="px-6 py-4">
                 <div className="flex flex-wrap gap-1">
                   {item.categories.map(cat => (
-                    <span key={cat} className="text-[9px] font-black px-2 py-0.5 bg-white rounded border border-zinc-200 text-zinc-500 uppercase tracking-tighter">
+                    <span key={cat} className="text-[9px] font-black px-2 py-0.5 bg-white rounded border border-zinc-200 text-zinc-400 uppercase tracking-tighter">
                       {cat}
                     </span>
                   ))}
                 </div>
               </td>
               <td className="px-6 py-4">
-                <span className={`inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border ${
-                  item.status === ItemStatus.PUBLISHED 
-                    ? 'bg-zinc-50 border-zinc-200 text-black' 
-                    : 'bg-white border-dashed border-zinc-200 text-zinc-400'
-                }`}>
+                <span className={`inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border ${item.status === ItemStatus.PUBLISHED
+                  ? 'bg-zinc-50 border-zinc-200 text-black'
+                  : 'bg-white border-dashed border-zinc-200 text-zinc-400'
+                  }`}>
                   <span className={`w-1.5 h-1.5 rounded-full ${item.status === ItemStatus.PUBLISHED ? 'bg-black' : 'bg-zinc-300'}`}></span>
                   {item.status}
                 </span>
               </td>
               <td className="px-6 py-4">
-                <p className="text-xs font-bold text-zinc-500">{new Date(item.audit.updatedAt).toLocaleDateString()}</p>
-                <p className="text-[9px] text-zinc-400 uppercase font-black mt-0.5 tracking-wider">BY {item.audit.updatedBy}</p>
+                <p className="text-xs font-bold text-zinc-500">
+                  {item.audit.updatedAt ? new Date(item.audit.updatedAt).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' }) : 'Never'}
+                </p>
+                <p className="text-[9px] text-zinc-400 uppercase font-black mt-0.5 tracking-wider">
+                  BY {item.audit.updatedBy === 'fd32f325-3705-46a5-b7bc-cf8da12e7953' ? 'Sixte9 Admin' : (item.audit.updatedBy || 'Unknown')}
+                </p>
               </td>
               <td className="px-6 py-4 text-right">
                 <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">

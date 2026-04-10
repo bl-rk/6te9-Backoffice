@@ -3,7 +3,7 @@ import { MarketplaceCategory } from './types';
 
 export const CATEGORY_FILTERS = {
   [MarketplaceCategory.TECH]: [
-    'Gaming', 'Office Laptop', 'Developer', 'Mobile', 'Networking', 'Peripherals'
+    'Gaming', 'Office Laptop', 'Developer', 'Mobile', 'Networking', 'Peripherals', 'High Compute', 'Graphics Efficiency'
   ],
   [MarketplaceCategory.MEDIA]: [
     'Print', 'Stationery', 'Apparel', 'Branded ID', 'Promotional Items'
@@ -14,7 +14,7 @@ export const CATEGORY_FILTERS = {
 };
 
 export const TECH_TYPES = ['Phone', 'Laptop', 'Tablet', 'Desktop', 'Console', 'Accessory'];
-export const TECH_CONDITIONS = ['New', 'Refurbished', 'Used'];
+export const TECH_CONDITIONS = ['New', 'Refurbished', 'Used', 'For Parts'];
 
 export const MEDIA_SUBTYPES = {
   Print: ['Poster', 'Flyer', 'Brochure', 'Booklet', 'Banner'],
@@ -29,3 +29,6 @@ export const SPICE_LEVELS = ['None', 'Mild', 'Medium', 'Hot', 'Extra Hot'];
 
 export const BRANDS = ['MON BIENS', 'TECH', 'MEDIA', 'BLXRK'];
 export const LEAD_STAGES = ['INGESTION', 'CONTACTED', 'FOLLOW_UP', 'CONVERTED', 'LOST'];
+
+export const TECH_SPEC_KEYS = ['Storage', 'RAM', 'SIZE', 'COLOR'];
+export const MEDIA_SPEC_KEYS = ['Finish', 'Size', 'Quantity'];

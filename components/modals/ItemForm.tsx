@@ -1,5 +1,5 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { X, Save, Plus, Upload, Trash, Image as ImageIcon } from 'lucide-react';
 import {
   MarketplaceCategory,
@@ -12,8 +12,12 @@ import {
   TECH_CONDITIONS,
   CULINARY_CUISINES,
   CULINARY_DIETARY,
-  SPICE_LEVELS
+  SPICE_LEVELS,
+  TECH_SPEC_KEYS,
+  MEDIA_SPEC_KEYS
 } from '../../constants';
+import { cloudinaryService } from '../../services/cloudinaryService';
+import { inventoryService } from '../../services/inventoryService';
 
 interface ItemFormProps {
   isOpen: boolean;
@@ -31,52 +35,120 @@ const ItemForm: React.FC<ItemFormProps> = ({
   defaultMarketplace
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [formData, setFormData] = useState<Partial<MarketplaceItem>>(
-    initialData || {
+
+  // Revised initial state with session cache lookup
+  const getInitialState = () => {
+    if (initialData) return initialData;
+    const cached = localStorage.getItem('6te9_form_cache');
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        // Migration: Ensure specs is an array if it was stored as an object
+        if (parsed.specs && !Array.isArray(parsed.specs)) {
+          parsed.specs = Object.entries(parsed.specs).map(([key, val]: [string, any]) => ({
+            key,
+            value: typeof val === 'object' ? val.value : val,
+            amount: typeof val === 'object' ? val.amount : 0
+          }));
+        }
+        // Only use cache if it matches the current default marketplace
+        if (parsed.marketplace === defaultMarketplace) return parsed;
+      } catch (e) {
+        console.error('Failed to parse form cache');
+      }
+    }
+    return {
       id: Math.random().toString(36).substr(2, 9),
       marketplace: defaultMarketplace,
       status: ItemStatus.DRAFT,
       name: '',
-      sku: '',
       price: 0,
       description: '',
+      baseCategory: defaultMarketplace, // Default to vertical
       categories: [],
       images: [],
       isOffer: false,
-      availabilityStatus: 'In Stock',
+      freeDeliveryLagos: false,
+      originalPackaging: false,
       audit: {
         createdAt: new Date().toISOString(),
         createdBy: 'Admin',
         updatedAt: new Date().toISOString(),
         updatedBy: 'Admin'
       }
-    }
-  );
+    };
+  };
+
+  const [formData, setFormData] = useState<Partial<MarketplaceItem>>(getInitialState());
 
   const [currentCat, setCurrentCat] = useState<MarketplaceCategory>(
-    initialData?.marketplace || defaultMarketplace
+    formData.marketplace || defaultMarketplace
   );
+
+  const [isUploading, setIsUploading] = useState(false);
+
+  // Persistence Logic: Cache ongoing form data (stripping ephemeral blobs)
+  useEffect(() => {
+    if (!initialData && isOpen) {
+      const cacheData = {
+        ...formData,
+        marketplace: currentCat,
+        images: (formData.images || []).filter(img => !img.startsWith('blob:'))
+      };
+      localStorage.setItem('6te9_form_cache', JSON.stringify(cacheData));
+    }
+  }, [formData, currentCat, isOpen, initialData]);
 
   const handleSharedChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
-    const val = type === 'number' ? parseFloat(value) : value;
+    // Handle nested warranty fields
+    if (name === 'warranty_months') {
+      setFormData(prev => ({
+        ...prev,
+        warranty: { ...((prev as any).warranty || {}), warranty_months: parseInt(value) || 0 }
+      }));
+      return;
+    }
+    const val = type === 'number' ? (parseFloat(value) || 0) : value;
     setFormData(prev => ({ ...prev, [name]: val }));
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
-      // In a real app, upload to S3/Cloudinary and get URLs
-      // For this UI, we'll simulate by creating a local preview URL
-      const newUrls = Array.from(files).map(file => URL.createObjectURL(file as any));
-      setFormData(prev => ({
-        ...prev,
-        images: [...(prev.images || []), ...newUrls]
-      }));
+      setIsUploading(true);
+      try {
+        const uploadPromises = Array.from(files).map(file => cloudinaryService.uploadImage(file as File));
+        const newUrls = await Promise.all(uploadPromises);
+        setFormData(prev => ({
+          ...prev,
+          images: [...(prev.images || []), ...newUrls]
+        }));
+      } catch (error) {
+        console.error('Upload failed:', error);
+        // We might want a more elegant toast here, but alert works for now
+        alert('Upload failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      } finally {
+        setIsUploading(false);
+      }
     }
   };
 
-  const removeImage = (index: number) => {
+  const removeImage = async (index: number) => {
+    const imageUrl = formData.images?.[index];
+    if (!imageUrl) return;
+
+    // If we are editing an existing item and the image is not a local blob, notify backend
+    if (initialData?.id) {
+      try {
+        await inventoryService.deleteImage(initialData.id, imageUrl);
+      } catch (error) {
+        console.error('Failed to sync image deletion with backend:', error);
+        // We continue with local removal if the user wants it gone from the UI, 
+        // but we log the sync failure.
+      }
+    }
+
     setFormData(prev => ({
       ...prev,
       images: (prev.images || []).filter((_, i) => i !== index)
@@ -94,14 +166,27 @@ const ItemForm: React.FC<ItemFormProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Cleaning: Filter out empty specs and prune vertical fields for other verticals
+    const cleanedSpecs = (Array.isArray((formData as any).specs) ? (formData as any).specs : [])
+      .filter((s: any) => s.key?.trim() || s.value?.trim());
+
     onSave({
       ...formData,
+      specs: cleanedSpecs,
       marketplace: currentCat,
+      baseCategory: formData.baseCategory || currentCat,
       audit: {
-        ...formData.audit!,
-        updatedAt: new Date().toISOString()
+        ...(formData.audit || {
+          createdAt: new Date().toISOString(),
+          createdBy: 'Admin'
+        }),
+        updatedAt: new Date().toISOString(),
+        updatedBy: 'Admin'
       }
     } as MarketplaceItem);
+    // Clear cache on successful commit
+    if (!initialData) localStorage.removeItem('6te9_form_cache');
   };
 
   if (!isOpen) return null;
@@ -164,6 +249,12 @@ const ItemForm: React.FC<ItemFormProps> = ({
                     </button>
                   </div>
                 ))}
+                {isUploading && (
+                  <div className="aspect-square flex flex-col items-center justify-center border-2 border-zinc-100 rounded-2xl bg-zinc-50/50 animate-pulse">
+                    <Upload className="w-5 h-5 text-zinc-300 animate-bounce" />
+                    <span className="text-[7px] font-black uppercase tracking-widest text-zinc-400 mt-2">Syncing...</span>
+                  </div>
+                )}
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
@@ -198,16 +289,7 @@ const ItemForm: React.FC<ItemFormProps> = ({
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500">SKU Reference</label>
-                    <input
-                      name="sku"
-                      value={formData.sku}
-                      onChange={handleSharedChange}
-                      className="w-full px-4 py-3 bg-white border border-zinc-200 rounded-xl font-mono text-sm focus:ring-1 focus:ring-black outline-none transition-all"
-                    />
-                  </div>
+                <div className="grid grid-cols-1 gap-4">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Retail Price (₦)</label>
                     <input
@@ -303,26 +385,193 @@ const ItemForm: React.FC<ItemFormProps> = ({
                   <div className="space-y-6">
                     <div className="space-y-2">
                       <label className="text-[10px] font-black uppercase text-zinc-500">Manufacturer</label>
-                      <input className="w-full px-4 py-3 bg-zinc-50 rounded-xl border border-zinc-100 font-bold" placeholder="e.g. Apple" />
+                      <input
+                        name="brand"
+                        list="brand-suggestions"
+                        value={(formData as any).brand || ''}
+                        onChange={handleSharedChange}
+                        className="w-full px-4 py-3 bg-zinc-50 rounded-xl border border-zinc-100 font-bold focus:ring-1 focus:ring-black outline-none"
+                        placeholder="e.g. Apple"
+                      />
+                      <datalist id="brand-suggestions">
+                        {['Apple', 'Samsung', 'Huawei', 'Nokia', 'Oppo', 'Xiaomi', 'Google'].map(b => (
+                          <option key={b} value={b} />
+                        ))}
+                      </datalist>
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-black uppercase text-zinc-500">Hardware Class</label>
-                      <select className="w-full px-4 py-3 bg-zinc-50 rounded-xl border border-zinc-100 font-bold">
-                        {TECH_TYPES.map(t => <option key={t}>{t}</option>)}
+                      <select
+                        name="type"
+                        value={(formData as any).type || ''}
+                        onChange={handleSharedChange}
+                        className="w-full px-4 py-3 bg-zinc-50 rounded-xl border border-zinc-100 font-bold focus:ring-1 focus:ring-black outline-none"
+                      >
+                        <option value="">Select Type</option>
+                        {TECH_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                       </select>
                     </div>
                   </div>
                   <div className="space-y-6">
                     <div className="space-y-2">
                       <label className="text-[10px] font-black uppercase text-zinc-500">Operational Condition</label>
-                      <select className="w-full px-4 py-3 bg-zinc-50 rounded-xl border border-zinc-100 font-bold">
-                        {TECH_CONDITIONS.map(c => <option key={c}>{c}</option>)}
+                      <select
+                        name="condition"
+                        value={(formData as any).condition || ''}
+                        onChange={handleSharedChange}
+                        className="w-full px-4 py-3 bg-zinc-50 rounded-xl border border-zinc-100 font-bold focus:ring-1 focus:ring-black outline-none"
+                      >
+                        <option value="">Select Condition</option>
+                        {TECH_CONDITIONS.map(c => <option key={c} value={c}>{c}</option>)}
                       </select>
                     </div>
-                    <div className="flex items-center gap-4 py-3 px-4 bg-zinc-50 rounded-xl border border-zinc-100">
-                      <input type="checkbox" className="w-4 h-4 accent-black" />
-                      <label className="text-[10px] font-black uppercase text-zinc-500 tracking-widest">Extended Warranty Support</label>
+                    <div className="flex flex-col gap-3">
+                      <div className="flex items-center gap-4 py-3 px-4 bg-zinc-50 rounded-xl border border-zinc-100">
+                        <input
+                          type="checkbox"
+                          checked={(formData as any).warranty?.hasWarranty || false}
+                          onChange={(e) => setFormData(prev => ({
+                            ...prev,
+                            warranty: { ...((prev as any).warranty || {}), hasWarranty: e.target.checked }
+                          }))}
+                          className="w-4 h-4 accent-black"
+                        />
+                        <label className="text-[10px] font-black uppercase text-zinc-500 tracking-widest">Extended Warranty Support</label>
+                      </div>
+
+                      {(formData as any).warranty?.hasWarranty && (
+                        <div className="space-y-2 animate-in slide-in-from-top-2 duration-200">
+                          <label className="text-[8px] font-black uppercase text-zinc-400">Warranty Coverage (Months)</label>
+                          <input
+                            type="number"
+                            name="warranty_months"
+                            value={(formData as any).warranty?.warranty_months || ''}
+                            onChange={handleSharedChange}
+                            className="w-full px-4 py-2 bg-white border border-zinc-200 rounded-xl text-xs font-black focus:ring-1 focus:ring-black outline-none"
+                            placeholder="e.g. 12"
+                          />
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-4 py-3 px-4 bg-zinc-50 rounded-xl border border-zinc-100">
+                        <input
+                          type="checkbox"
+                          checked={formData.freeDeliveryLagos || false}
+                          onChange={(e) => setFormData(prev => ({ ...prev, freeDeliveryLagos: e.target.checked }))}
+                          className="w-4 h-4 accent-black"
+                        />
+                        <label className="text-[10px] font-black uppercase text-zinc-500 tracking-widest">Free Delivery in Lagos</label>
+                      </div>
+                      <div className="flex items-center gap-4 py-3 px-4 bg-zinc-50 rounded-xl border border-zinc-100">
+                        <input
+                          type="checkbox"
+                          checked={formData.originalPackaging || false}
+                          onChange={(e) => setFormData(prev => ({ ...prev, originalPackaging: e.target.checked }))}
+                          className="w-4 h-4 accent-black"
+                        />
+                        <label className="text-[10px] font-black uppercase text-zinc-500 tracking-widest">Original Packaging and Boxes</label>
+                      </div>
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Refactored Multi-Entry Spec Engine */}
+              {(currentCat === MarketplaceCategory.TECH || currentCat === MarketplaceCategory.MEDIA) && (
+                <div className="mt-10 space-y-6 pt-10 border-t border-zinc-100">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] font-black text-black uppercase tracking-widest italic">Distinct Specification Manifest</p>
+                      <p className="text-[8px] text-zinc-400 font-bold uppercase mt-1">Include multiple values for the same key (e.g. multiple Storage tiers)</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const currentSpecs = (formData as any).specs || [];
+                        setFormData(prev => ({
+                          ...prev,
+                          specs: [...currentSpecs, { key: '', value: '', amount: 0 }]
+                        }));
+                      }}
+                      className="flex items-center gap-2 px-4 py-2 bg-black text-white rounded-xl text-[8px] font-black uppercase tracking-widest hover:bg-zinc-800 transition-all"
+                    >
+                      <Plus className="w-3 h-3" /> Add Spec Line
+                    </button>
+                  </div>
+
+                  <div className="space-y-4">
+                    {(Array.isArray((formData as any).specs) ? (formData as any).specs : []).map((spec: any, idx: number) => (
+                      <div key={idx} className="flex gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                        <div className="flex-1 space-y-2">
+                          <label className="text-[8px] font-black uppercase text-zinc-400">Spec Key</label>
+                          <input
+                            list={`spec-keys-${currentCat}`}
+                            className="w-full px-4 py-3 bg-zinc-50 rounded-xl border border-zinc-100 font-bold focus:ring-1 focus:ring-black outline-none transition-all"
+                            value={spec.key}
+                            onChange={(e) => {
+                              const newSpecs = [...((formData as any).specs || [])];
+                              newSpecs[idx] = { ...newSpecs[idx], key: e.target.value };
+                              setFormData(prev => ({ ...prev, specs: newSpecs }));
+                            }}
+                            placeholder="e.g. Storage"
+                          />
+                          <datalist id={`spec-keys-${currentCat}`}>
+                            {(currentCat === MarketplaceCategory.TECH ? TECH_SPEC_KEYS : MEDIA_SPEC_KEYS).map(k => (
+                              <option key={k} value={k} />
+                            ))}
+                          </datalist>
+                        </div>
+                        <div className="flex-[2] space-y-2">
+                          <label className="text-[8px] font-black uppercase text-zinc-400">Value</label>
+                          <input
+                            className="w-full px-4 py-3 bg-zinc-50 rounded-xl border border-zinc-100 font-bold focus:ring-1 focus:ring-black outline-none transition-all"
+                            value={spec.value}
+                            onChange={(e) => {
+                              const newSpecs = [...(formData as any).specs];
+                              newSpecs[idx] = { ...newSpecs[idx], value: e.target.value };
+                              setFormData(prev => ({ ...prev, specs: newSpecs }));
+                            }}
+                            placeholder="e.g. 512GB"
+                          />
+                        </div>
+                        <div className="flex-1 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <label className="text-[8px] font-black uppercase text-zinc-400">Price Δ (₦)</label>
+                            <span className="text-[8px] font-bold text-zinc-300">OPTIONAL</span>
+                          </div>
+                          <div className="flex gap-4">
+                            <input
+                              type="number"
+                              className="flex-1 px-4 py-3 bg-zinc-50 rounded-xl border border-zinc-100 font-black focus:ring-1 focus:ring-black outline-none transition-all"
+                              value={spec.amount || ''}
+                              onChange={(e) => {
+                                const newSpecs = [...(formData as any).specs];
+                                newSpecs[idx] = { ...newSpecs[idx], amount: parseFloat(e.target.value) || 0 };
+                                setFormData(prev => ({ ...prev, specs: newSpecs }));
+                              }}
+                              placeholder="+/-"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newSpecs = [...(formData as any).specs];
+                                newSpecs.splice(idx, 1);
+                                setFormData(prev => ({ ...prev, specs: newSpecs }));
+                              }}
+                              className="p-3 bg-zinc-100 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                            >
+                              <Trash className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {((formData as any).specs || []).length === 0 && (
+                      <div className="py-10 border-2 border-dashed border-zinc-100 rounded-2xl flex flex-col items-center justify-center space-y-2 opacity-50">
+                        <ImageIcon className="w-6 h-6 text-zinc-300" />
+                        <p className="text-[8px] font-black uppercase tracking-widest text-zinc-400">No Distinct Specs Defined</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -332,21 +581,39 @@ const ItemForm: React.FC<ItemFormProps> = ({
                   <div className="space-y-6">
                     <div className="space-y-2">
                       <label className="text-[10px] font-black uppercase text-zinc-500">Global Cuisine Origin</label>
-                      <select className="w-full px-4 py-3 bg-zinc-50 rounded-xl border border-zinc-100 font-bold">
-                        {CULINARY_CUISINES.map(t => <option key={t}>{t}</option>)}
+                      <select
+                        name="cuisineType"
+                        value={(formData as any).cuisineType || ''}
+                        onChange={handleSharedChange}
+                        className="w-full px-4 py-3 bg-zinc-50 rounded-xl border border-zinc-100 font-bold focus:ring-1 focus:ring-black outline-none"
+                      >
+                        <option value="">Select Origin</option>
+                        {CULINARY_CUISINES.map(t => <option key={t} value={t}>{t}</option>)}
                       </select>
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-black uppercase text-zinc-500">Scoville/Spice Rating</label>
-                      <select className="w-full px-4 py-3 bg-zinc-50 rounded-xl border border-zinc-100 font-bold">
-                        {SPICE_LEVELS.map(s => <option key={s}>{s}</option>)}
+                      <select
+                        name="spiceLevel"
+                        value={(formData as any).spiceLevel || ''}
+                        onChange={handleSharedChange}
+                        className="w-full px-4 py-3 bg-zinc-50 rounded-xl border border-zinc-100 font-bold focus:ring-1 focus:ring-black outline-none"
+                      >
+                        <option value="">Select Level</option>
+                        {SPICE_LEVELS.map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
                     </div>
                   </div>
                   <div className="space-y-6">
                     <div className="space-y-2">
                       <label className="text-[10px] font-black uppercase text-zinc-500">Composition (Ingredients List)</label>
-                      <textarea className="w-full px-4 py-3 bg-zinc-50 rounded-xl border border-zinc-100 text-sm font-medium h-32" placeholder="CSV format: Flour, Sugar, Water..." />
+                      <textarea
+                        name="ingredients"
+                        value={((formData as any).ingredients || []).join(', ')}
+                        onChange={(e) => setFormData(prev => ({ ...prev, ingredients: e.target.value.split(',').map(i => i.trim()) }))}
+                        className="w-full px-4 py-3 bg-zinc-50 rounded-xl border border-zinc-100 text-sm font-medium h-32 focus:ring-1 focus:ring-black outline-none resize-none"
+                        placeholder="CSV format: Flour, Sugar, Water..."
+                      />
                     </div>
                   </div>
                 </div>
@@ -357,20 +624,57 @@ const ItemForm: React.FC<ItemFormProps> = ({
                   <div className="space-y-6">
                     <div className="space-y-2">
                       <label className="text-[10px] font-black uppercase text-zinc-500">Primary Substrate/Material</label>
-                      <input className="w-full px-4 py-3 bg-zinc-50 rounded-xl border border-zinc-100 font-bold" placeholder="e.g. 300gsm Cotton" />
+                      <input
+                        name="material"
+                        value={(formData as any).material || ''}
+                        onChange={handleSharedChange}
+                        className="w-full px-4 py-3 bg-zinc-50 rounded-xl border border-zinc-100 font-bold focus:ring-1 focus:ring-black outline-none"
+                        placeholder="e.g. 300gsm Cotton"
+                      />
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-black uppercase text-zinc-500">Client Personalization</label>
-                      <select className="w-full px-4 py-3 bg-zinc-50 rounded-xl border border-zinc-100 font-bold uppercase tracking-widest text-xs">
-                        <option>Enabled</option>
-                        <option>Disabled</option>
+                      <select
+                        name="customizable"
+                        value={(formData as any).customizable ? 'true' : 'false'}
+                        onChange={(e) => setFormData(prev => ({ ...prev, customizable: e.target.value === 'true' }))}
+                        className="w-full px-4 py-3 bg-zinc-50 rounded-xl border border-zinc-100 font-bold uppercase tracking-widest text-xs focus:ring-1 focus:ring-black outline-none"
+                      >
+                        <option value="true">Enabled</option>
+                        <option value="false">Disabled</option>
                       </select>
                     </div>
                   </div>
                   <div className="space-y-6">
                     <div className="space-y-2">
                       <label className="text-[10px] font-black uppercase text-zinc-500">Standard Fulfillment Loop (Days)</label>
-                      <input type="number" className="w-full px-4 py-3 bg-zinc-50 rounded-xl border border-zinc-100 font-black" defaultValue={7} />
+                      <input
+                        type="number"
+                        name="leadTime"
+                        value={(formData as any).leadTime || 7}
+                        onChange={handleSharedChange}
+                        className="w-full px-4 py-3 bg-zinc-50 rounded-xl border border-zinc-100 font-black focus:ring-1 focus:ring-black outline-none"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-3">
+                      <div className="flex items-center gap-4 py-3 px-4 bg-zinc-50 rounded-xl border border-zinc-100">
+                        <input
+                          type="checkbox"
+                          checked={formData.freeDeliveryLagos || false}
+                          onChange={(e) => setFormData(prev => ({ ...prev, freeDeliveryLagos: e.target.checked }))}
+                          className="w-4 h-4 accent-black"
+                        />
+                        <label className="text-[10px] font-black uppercase text-zinc-500 tracking-widest">Free Delivery in Lagos</label>
+                      </div>
+                      <div className="flex items-center gap-4 py-3 px-4 bg-zinc-50 rounded-xl border border-zinc-100">
+                        <input
+                          type="checkbox"
+                          checked={formData.originalPackaging || false}
+                          onChange={(e) => setFormData(prev => ({ ...prev, originalPackaging: e.target.checked }))}
+                          className="w-4 h-4 accent-black"
+                        />
+                        <label className="text-[10px] font-black uppercase text-zinc-500 tracking-widest">Original Packaging and Boxes</label>
+                      </div>
                     </div>
                   </div>
                 </div>

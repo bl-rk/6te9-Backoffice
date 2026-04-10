@@ -1,11 +1,12 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   MarketplaceCategory,
   MarketplaceItem,
   ViewType,
   ItemStatus,
-  User
+  User,
+  UserStatus
 } from './types';
 import { initialMockItems } from './utils/mockData';
 import StatsCard from './components/StatsCard';
@@ -19,20 +20,42 @@ import Analytics from './components/Analytics';
 import BulkUploadModal from './components/modals/BulkUploadModal';
 import NewsManagement from './components/NewsManagement';
 import LeadManagement from './components/LeadManagement';
+import UserManagement from './components/UserManagement';
 import WhatsAppIntegration from './components/WhatsAppIntegration';
+import GenericConfirmModal from './components/modals/GenericConfirmModal';
+import { authService } from './services/authService';
+import { inventoryService } from './services/inventoryService';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Package, Tag, TrendingUp, Clock, Search, Download, AlertTriangle, FileUp } from 'lucide-react';
 
 const App: React.FC = () => {
+  const [items, setItems] = useState<MarketplaceItem[]>([]);
+  const [loading, setLoading] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState<User | null>(null);
-  const [items, setItems] = useState<MarketplaceItem[]>(initialMockItems);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<MarketplaceItem | null>(null);
   const [maintenanceMode, setMaintenanceMode] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const location = useLocation();
+
+  useEffect(() => {
+    const token = localStorage.getItem('auth_token');
+    const role = localStorage.getItem('user_role');
+    if (token) {
+      setIsAuthenticated(true);
+      setUser({
+        id: 'system',
+        email: 'systadmin@6te9.com',
+        name: 'System Admin',
+        role: (role || 'ADMIN').toUpperCase().replace('_', '_') as any,
+        status: UserStatus.ACTIVE,
+        dateAdded: new Date().toISOString()
+      });
+    }
+  }, []);
 
   // Helper to get active marketplace and view from path
   const activeView = useMemo(() => {
@@ -54,6 +77,27 @@ const App: React.FC = () => {
     return MarketplaceCategory.TECH;
   }, [location.pathname]);
 
+  useEffect(() => {
+    if (isAuthenticated && (activeView === 'INVENTORY' || activeView === 'DASHBOARD')) {
+      fetchInventory();
+    }
+  }, [isAuthenticated, activeView, activeMarketplace]);
+
+  const fetchInventory = async () => {
+    setLoading(true);
+    try {
+      const isGeneralInventory = activeView === 'INVENTORY' && location.pathname === '/inventory';
+      const data = (activeView === 'DASHBOARD' || isGeneralInventory)
+        ? await inventoryService.getAllItems()
+        : await inventoryService.getItems(activeMarketplace);
+      setItems(data);
+    } catch (err) {
+      console.error('Inventory sync failed:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Search & Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<ItemStatus | 'ALL'>('ALL');
@@ -64,7 +108,8 @@ const App: React.FC = () => {
         item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.sku.toLowerCase().includes(searchQuery.toLowerCase());
 
-      const matchesMarketplace = activeView === 'DASHBOARD' ? true : item.marketplace === activeMarketplace;
+      const isGeneralInventory = activeView === 'INVENTORY' && location.pathname === '/inventory';
+      const matchesMarketplace = (activeView === 'DASHBOARD' || isGeneralInventory) ? true : item.marketplace === activeMarketplace;
       const matchesStatus = statusFilter === 'ALL' ? true : item.status === statusFilter;
 
       return matchesSearch && matchesMarketplace && matchesStatus;
@@ -77,6 +122,7 @@ const App: React.FC = () => {
   };
 
   const handleLogout = () => {
+    authService.logout();
     setIsAuthenticated(false);
     setUser(null);
   };
@@ -92,18 +138,33 @@ const App: React.FC = () => {
   };
 
   const handleDeleteItem = (id: string) => {
-    if (confirm('Are you sure you want to delete this item?')) {
-      setItems(prev => prev.filter(i => i.id !== id));
+    setConfirmDeleteId(id);
+  };
+
+  const handleConfirmDeleteItem = async () => {
+    if (confirmDeleteId) {
+      try {
+        await inventoryService.deleteItem(confirmDeleteId, activeMarketplace);
+        setItems(prev => prev.filter(i => i.id !== confirmDeleteId));
+        setConfirmDeleteId(null);
+      } catch (err) {
+        alert('Failed to abolish record.');
+      }
     }
   };
 
-  const handleSaveItem = (item: MarketplaceItem) => {
-    if (editingItem) {
-      setItems(prev => prev.map(i => i.id === item.id ? item : i));
-    } else {
-      setItems(prev => [item, ...prev]);
+  const handleSaveItem = async (item: MarketplaceItem) => {
+    try {
+      const saved = await inventoryService.saveItem(item, item.marketplace);
+      if (editingItem) {
+        setItems(prev => prev.map(i => i.id === saved.id ? saved : i));
+      } else {
+        setItems(prev => [saved, ...prev]);
+      }
+      setIsFormOpen(false);
+    } catch (err) {
+      alert('Failed to synchronize record.');
     }
-    setIsFormOpen(false);
   };
 
   const handleBulkUploadComplete = (count: number) => {
@@ -221,6 +282,7 @@ const App: React.FC = () => {
             <Route path="/leads" element={<LeadManagement />} />
             <Route path="/whatsapp" element={<WhatsAppIntegration />} />
             <Route path="/news" element={<NewsManagement />} />
+            <Route path="/users" element={<UserManagement />} />
 
             <Route path="/settings" element={
               <Settings
@@ -249,6 +311,15 @@ const App: React.FC = () => {
         isOpen={isBulkUploadOpen}
         onClose={() => setIsBulkUploadOpen(false)}
         onUploadComplete={handleBulkUploadComplete}
+      />
+
+      <GenericConfirmModal
+        isOpen={!!confirmDeleteId}
+        onClose={() => setConfirmDeleteId(null)}
+        onConfirm={handleConfirmDeleteItem}
+        title="Delete Inventory Item"
+        message="Are you sure you want to permanently remove this item from the catalog? This will affect all associated records."
+        confirmLabel="Delete Item"
       />
     </div>
   );

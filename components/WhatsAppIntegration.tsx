@@ -19,20 +19,20 @@ import {
 } from 'lucide-react';
 import { Brand } from '../types';
 import GenericModal from './modals/GenericModal';
-
+import WhatsAppSessionsTable from './WhatsAppSessionsTable';
 interface WhatsAppAccount {
     id: Brand;
     name: string;
     phone: string;
     status: 'connected' | 'disconnected' | 'pending';
-    apiKey: string;
+    metaNumberId: string;
     lastSync: string;
 }
 
 const INITIAL_ACCOUNTS: WhatsAppAccount[] = [
-    { id: 'TECH', name: '6te9 TECH Support', phone: '+234 801 234 5678', status: 'connected', apiKey: 'WH-API-TECH-77281-992-XAQ', lastSync: '2 mins ago' },
-    { id: 'MEDIA', name: '6te9 MEDIA Designs', phone: '+234 902 345 6789', status: 'connected', apiKey: 'WH-API-MEDIA-11029-443-YBT', lastSync: '15 mins ago' },
-    { id: 'BLXRK', name: 'BLXRK Concierge', phone: '+234 703 456 7890', status: 'pending', apiKey: 'WH-API-BLXRK-88271-001-ZCV', lastSync: 'Never' },
+    { id: 'TECH', name: '6te9 TECH Support', phone: '+234 801 234 5678', status: 'connected', metaNumberId: '298731002341XX', lastSync: '2 mins ago' },
+    { id: 'MEDIA', name: '6te9 MEDIA Designs', phone: '+234 902 345 6789', status: 'connected', metaNumberId: '982736110292YY', lastSync: '15 mins ago' },
+    { id: 'BLXRK', name: 'BLXRK Concierge', phone: '+234 703 456 7890', status: 'pending', metaNumberId: 'P-1827361009AA', lastSync: 'Never' },
 ];
 
 const WhatsAppIntegration: React.FC = () => {
@@ -180,7 +180,7 @@ const WhatsAppIntegration: React.FC = () => {
                                 </div>
                                 <div className="px-3 py-2 bg-zinc-50 rounded-lg border border-zinc-100 overflow-hidden">
                                     <p className="text-[9px] font-mono text-zinc-400 break-all leading-relaxed tracking-tighter">
-                                        {obfuscateKey(activeAccount.apiKey)}
+                                        {obfuscateKey(activeAccount.metaNumberId)}
                                     </p>
                                 </div>
                             </div>
@@ -208,6 +208,8 @@ const WhatsAppIntegration: React.FC = () => {
                     </div>
                 </div>
             </div>
+
+            <WhatsAppSessionsTable />
 
             {/* Add Account Modal */}
             <GenericModal
@@ -266,13 +268,13 @@ const WhatsAppIntegration: React.FC = () => {
                         />
                     </div>
                     <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 px-1">Meta API Key</label>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 px-1">Meta Number ID</label>
                         <input
-                            type="password"
-                            placeholder="WH-API-..."
+                            type="text"
+                            placeholder="e.g. 1029384756..."
                             className="w-full px-4 py-3 bg-zinc-50 border border-zinc-100 rounded-xl text-xs font-bold outline-none focus:ring-1 focus:ring-black transition-all"
-                            value={newAccount.apiKey}
-                            onChange={e => setNewAccount({ ...newAccount, apiKey: e.target.value })}
+                            value={newAccount.metaNumberId}
+                            onChange={e => setNewAccount({ ...newAccount, metaNumberId: e.target.value })}
                         />
                     </div>
                 </div>

@@ -22,11 +22,12 @@ import NewsManagement from './components/NewsManagement';
 import LeadManagement from './components/LeadManagement';
 import UserManagement from './components/UserManagement';
 import WhatsAppIntegration from './components/WhatsAppIntegration';
+import OrdersManagement from './components/OrdersManagement';
 import GenericConfirmModal from './components/modals/GenericConfirmModal';
 import { authService } from './services/authService';
 import { inventoryService } from './services/inventoryService';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { Package, Tag, TrendingUp, Clock, Search, Download, AlertTriangle, FileUp } from 'lucide-react';
+import { Package, Tag, TrendingUp, Clock, Search, Download, AlertTriangle, FileUp, ShoppingCart } from 'lucide-react';
 
 const App: React.FC = () => {
   const [items, setItems] = useState<MarketplaceItem[]>([]);
@@ -38,6 +39,7 @@ const App: React.FC = () => {
   const [editingItem, setEditingItem] = useState<MarketplaceItem | null>(null);
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const location = useLocation();
 
@@ -82,6 +84,11 @@ const App: React.FC = () => {
       fetchInventory();
     }
   }, [isAuthenticated, activeView, activeMarketplace]);
+
+  // Close mobile menu on route change
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
 
   const fetchInventory = async () => {
     setLoading(true);
@@ -177,11 +184,22 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="flex h-screen bg-white">
-      <Sidebar
-        onLogout={handleLogout}
-        user={user}
-      />
+    <div className="flex h-screen bg-white overflow-hidden">
+      {/* Mobile Drawer Overlay */}
+      {mobileMenuOpen && (
+        <div
+          className="lg:hidden fixed inset-0 z-40 bg-zinc-900/50 backdrop-blur-sm transition-opacity"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
+      {/* Sidebar Wrapper */}
+      <div className={`fixed lg:static inset-y-0 left-0 z-50 transform transition-transform duration-300 ease-in-out ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
+        <Sidebar
+          onLogout={handleLogout}
+          user={user}
+        />
+      </div>
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {maintenanceMode && (
@@ -195,6 +213,7 @@ const App: React.FC = () => {
           activeView={activeView}
           activeMarketplace={activeMarketplace}
           onCreateClick={handleCreateItem}
+          onMobileMenuClick={() => setMobileMenuOpen(true)}
         />
 
         <main className="flex-1 overflow-y-auto p-8 no-scrollbar">
@@ -281,6 +300,7 @@ const App: React.FC = () => {
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/leads" element={<LeadManagement />} />
             <Route path="/whatsapp" element={<WhatsAppIntegration />} />
+            <Route path="/orders" element={<OrdersManagement />} />
             <Route path="/news" element={<NewsManagement />} />
             <Route path="/users" element={<UserManagement />} />
 

@@ -1,19 +1,20 @@
 
 import React from 'react';
-import { Plus, Bell } from 'lucide-react';
+import { Plus, Bell, Menu } from 'lucide-react';
 import { MarketplaceCategory, ViewType } from '../types';
 
 interface HeaderProps {
   activeView: ViewType;
   activeMarketplace: MarketplaceCategory;
   onCreateClick: () => void;
+  onMobileMenuClick?: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ activeView, activeMarketplace, onCreateClick }) => {
+const Header: React.FC<HeaderProps> = ({ activeView, activeMarketplace, onCreateClick, onMobileMenuClick }) => {
   const getTitle = () => {
     if (activeView === 'DASHBOARD') return 'Dashboard Overview';
     if (activeView === 'ANALYTICS') return 'Back-Office Analytics';
-    
+
     switch (activeMarketplace) {
       case MarketplaceCategory.TECH: return 'Tech Marketplace';
       case MarketplaceCategory.MEDIA: return 'Media Marketplace';
@@ -23,10 +24,18 @@ const Header: React.FC<HeaderProps> = ({ activeView, activeMarketplace, onCreate
   };
 
   return (
-    <header className="h-20 border-b border-zinc-200 bg-white flex items-center justify-between px-8 sticky top-0 z-10">
-      <div>
-        <h2 className="text-xl font-bold text-black tracking-tight">{getTitle()}</h2>
-        <p className="text-xs text-zinc-400 mt-0.5">Managing items and catalog data</p>
+    <header className="h-20 border-b border-zinc-200 bg-white flex items-center justify-between px-4 md:px-8 sticky top-0 z-10">
+      <div className="flex items-center gap-3">
+        <button
+          onClick={onMobileMenuClick}
+          className="md:hidden p-2 -ml-2 text-zinc-400 hover:text-black transition-colors"
+        >
+          <Menu className="w-6 h-6" />
+        </button>
+        <div>
+          <h2 className="text-lg md:text-xl font-bold text-black tracking-tight">{getTitle()}</h2>
+          <p className="text-[10px] md:text-xs text-zinc-400 mt-0.5">Managing items and catalog data</p>
+        </div>
       </div>
 
       <div className="flex items-center gap-4">
@@ -35,7 +44,7 @@ const Header: React.FC<HeaderProps> = ({ activeView, activeMarketplace, onCreate
           <span className="absolute top-2 right-2 w-2 h-2 bg-black rounded-full border-2 border-white"></span>
         </button>
         <div className="h-6 w-px bg-zinc-200 mx-2"></div>
-        <button 
+        <button
           onClick={onCreateClick}
           className="flex items-center gap-2 bg-black text-white px-5 py-2.5 rounded-lg text-sm font-bold hover:bg-zinc-800 transition-all shadow-sm active:scale-95"
         >

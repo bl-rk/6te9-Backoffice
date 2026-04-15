@@ -111,7 +111,7 @@ export interface CulinaryItem extends BaseItem {
 
 export type MarketplaceItem = TechItem | MediaItem | CulinaryItem;
 
-export type ViewType = 'DASHBOARD' | 'INVENTORY' | 'ANALYTICS' | 'SETTINGS' | 'LEADS' | 'WHATSAPP' | 'NEWS';
+export type ViewType = 'DASHBOARD' | 'INVENTORY' | 'ANALYTICS' | 'SETTINGS' | 'LEADS' | 'WHATSAPP' | 'NEWS' | 'ORDERS';
 
 export enum LeadStage {
   INGESTION = 'INGESTION',
@@ -131,6 +131,8 @@ export interface Lead {
   category: string;
   stage: LeadStage;
   info: string;
+  mailSubscribe?: boolean;
+  whatsappSubscribe?: boolean;
   createdAt: string;
 }
 

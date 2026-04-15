@@ -1,5 +1,5 @@
 import React from 'react';
-import { Shield, Globe, Database, Save, Server, RefreshCw, Smartphone } from 'lucide-react';
+import { Shield, Globe, Database, Save, Server, RefreshCw, Truck, Percent, CreditCard } from 'lucide-react';
 
 interface SettingsProps {
   maintenanceMode: boolean;
@@ -45,6 +45,53 @@ const Settings: React.FC<SettingsProps> = ({ maintenanceMode, setMaintenanceMode
               >
                 <span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${maintenanceMode ? 'left-7' : 'left-1'}`}></span>
               </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Commerce Settings */}
+        <div className="bg-white border border-zinc-200 rounded-[2.5rem] overflow-hidden shadow-sm">
+          <div className="px-10 py-6 border-b border-zinc-100 bg-zinc-50/50 flex items-center gap-3">
+            <Percent className="w-5 h-5 text-zinc-400" />
+            <h3 className="text-xs font-black uppercase tracking-widest italic">Commerce Engine</h3>
+          </div>
+          <div className="p-10 space-y-6">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest px-1">Base Tax Rate (%)</label>
+              <input
+                type="number"
+                defaultValue="7.5"
+                step="0.1"
+                className="w-full px-4 py-3 bg-zinc-50 border border-zinc-100 rounded-xl text-xs font-bold outline-none focus:ring-1 focus:ring-black transition-all"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest px-1">Shipping (Lagos) ₦</label>
+                <input
+                  type="number"
+                  defaultValue="3000"
+                  className="w-full px-4 py-3 bg-zinc-50 border border-zinc-100 rounded-xl text-xs font-bold outline-none focus:ring-1 focus:ring-black transition-all"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest px-1">Shipping (Outside) ₦</label>
+                <input
+                  type="number"
+                  defaultValue="7000"
+                  className="w-full px-4 py-3 bg-zinc-50 border border-zinc-100 rounded-xl text-xs font-bold outline-none focus:ring-1 focus:ring-black transition-all"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest px-1">Payment Gateway</label>
+              <select className="w-full px-4 py-3 bg-zinc-50 border border-zinc-100 rounded-xl text-xs font-bold outline-none focus:ring-1 focus:ring-black transition-all appearance-none cursor-pointer">
+                <option value="PAYSTACK">Paystack (Default)</option>
+                <option value="FLUTTERWAVE">Flutterwave</option>
+                <option value="NONE">Manual Checkout Only</option>
+              </select>
             </div>
           </div>
         </div>

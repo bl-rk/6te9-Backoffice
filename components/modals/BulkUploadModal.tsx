@@ -35,14 +35,26 @@ const BulkUploadModal: React.FC<BulkUploadModalProps> = ({ isOpen, onClose, onUp
 
   const downloadTemplate = (format: 'csv' | 'json') => {
     const templates = {
-      csv: "Name,SKU,Price,Marketplace,Status,Description\nApple iPhone 15,IPH15-BLK,750000,TECH,PUBLISHED,Latest model black",
+      csv: "name,price,sale_price,status,base_category,is_offer,description,vertical_type\nSamsung Galaxy S24,1200000,1150000,PUBLISHED,Smartphones,true,Latest flagship with AI features,tech",
       json: JSON.stringify([{
-        name: "Apple iPhone 15",
-        sku: "IPH15-BLK",
-        price: 750000,
-        marketplace: "TECH",
+        name: "Samsung Galaxy S24",
+        price: 1200000,
+        sale_price: 1150000,
         status: "PUBLISHED",
-        description: "Latest model black"
+        base_category: "Smartphones",
+        is_offer: true,
+        description: "Latest flagship with AI features",
+        vertical_type: "tech",
+        vertical_data: {
+          brand: "Samsung",
+          type: "Phone",
+          condition: "New",
+          warranty: { has_warranty: true, warranty_months: 24 },
+          specs: [
+            { key: "Storage", value: "512GB", amount: 0 },
+            { key: "RAM", value: "12GB", amount: 0 }
+          ]
+        }
       }], null, 2)
     };
 
@@ -62,7 +74,7 @@ const BulkUploadModal: React.FC<BulkUploadModalProps> = ({ isOpen, onClose, onUp
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/90 backdrop-blur-xl" onClick={onClose} />
-      
+
       <div className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden relative z-10 border border-zinc-200 animate-in zoom-in-95 duration-200">
         <div className="px-10 py-8 border-b border-zinc-100 flex items-center justify-between">
           <h3 className="text-2xl font-black italic uppercase tracking-tighter">Batch Ingestion</h3>
@@ -79,14 +91,14 @@ const BulkUploadModal: React.FC<BulkUploadModalProps> = ({ isOpen, onClose, onUp
                 <p className="text-sm font-black uppercase tracking-widest text-zinc-300 group-hover:text-black mb-8 text-center">
                   {fileName || "Drag catalog assets for ingestion"}
                 </p>
-                <input 
-                  type="file" 
-                  id="bulkFile" 
-                  className="hidden" 
+                <input
+                  type="file"
+                  id="bulkFile"
+                  className="hidden"
                   accept=".csv,.json"
                   onChange={handleFileSelect}
                 />
-                <label 
+                <label
                   htmlFor="bulkFile"
                   className="px-10 py-4 bg-black text-white text-xs font-black uppercase tracking-widest rounded-2xl cursor-pointer hover:bg-zinc-800 transition-all active:scale-95 shadow-xl"
                 >
@@ -97,14 +109,14 @@ const BulkUploadModal: React.FC<BulkUploadModalProps> = ({ isOpen, onClose, onUp
               <div className="space-y-4">
                 <p className="text-[10px] font-black text-zinc-300 uppercase tracking-widest">Download Schemas</p>
                 <div className="grid grid-cols-2 gap-6">
-                  <button 
+                  <button
                     onClick={() => downloadTemplate('csv')}
                     className="flex items-center justify-center gap-3 p-5 bg-white border border-zinc-200 rounded-3xl hover:bg-black hover:text-white transition-all group"
                   >
                     <Table className="w-5 h-5 text-zinc-200 group-hover:text-white" />
                     <span className="text-[10px] font-black uppercase tracking-widest">CSV Manifest</span>
                   </button>
-                  <button 
+                  <button
                     onClick={() => downloadTemplate('json')}
                     className="flex items-center justify-center gap-3 p-5 bg-white border border-zinc-200 rounded-3xl hover:bg-black hover:text-white transition-all group"
                   >
@@ -115,13 +127,13 @@ const BulkUploadModal: React.FC<BulkUploadModalProps> = ({ isOpen, onClose, onUp
               </div>
 
               <div className="flex justify-end gap-4 pt-6 border-t border-zinc-100">
-                <button 
+                <button
                   onClick={onClose}
                   className="px-8 py-4 text-xs font-black uppercase tracking-widest text-zinc-400 hover:text-black transition-colors"
                 >
                   Cancel
                 </button>
-                <button 
+                <button
                   disabled={!fileName}
                   onClick={startUpload}
                   className="px-12 py-4 bg-black text-white rounded-2xl text-xs font-black uppercase tracking-widest disabled:opacity-20 transition-all shadow-2xl"

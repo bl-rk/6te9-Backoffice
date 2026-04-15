@@ -62,12 +62,30 @@ const LeadManagement: React.FC = () => {
     const stages = Object.values(LeadStage);
 
     const downloadLeadTemplate = () => {
-        const csvContent = "Mobile,Email,Brand,Category,Info\n+2348000000000,example@brand.com,TECH,Laptops,Bulk inquiry for office setup";
+        const csvContent = "mobile,email,brand,category,stage,info\n+2348000000000,example@brand.com,TECH,Laptops,INGESTION,Bulk inquiry for office setup";
         const blob = new Blob([csvContent], { type: 'text/csv' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
         link.download = "6te9_leads_template.csv";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+
+    const exportLeads = () => {
+        if (leads.length === 0) return alert('No leads to export.');
+        const headers = ["ID", "Mobile", "Email", "Brand", "Category", "Stage", "Info", "Mail Subscribed", "WhatsApp Subscribed", "Created At"];
+        const rows = leads.map(l => [
+            l.id, l.mobile, l.email, l.brand, l.category, l.stage, `"${l.info || ''}"`, l.mailSubscribe ? "YES" : "NO", l.whatsappSubscribe ? "YES" : "NO", l.createdAt
+        ]);
+        const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `6te9_leads_export_${new Date().toISOString().split('T')[0]}.csv`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -183,7 +201,13 @@ const LeadManagement: React.FC = () => {
                         onClick={downloadLeadTemplate}
                         className="flex items-center gap-2 px-6 py-2.5 border border-zinc-100 rounded-xl text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-black hover:bg-zinc-50 transition-all"
                     >
-                        Download Schema
+                        Schema Template
+                    </button>
+                    <button
+                        onClick={exportLeads}
+                        className="flex items-center gap-2 px-6 py-2.5 bg-black text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-800 transition-all shadow-md"
+                    >
+                        Export Leads
                     </button>
                 </div>
             </div>
@@ -234,6 +258,11 @@ const LeadManagement: React.FC = () => {
 
                                             <p className="text-xs font-black uppercase tracking-tight mb-2 truncate">{lead.category}</p>
 
+                                            <div className="flex gap-1 mb-2">
+                                                {lead.mailSubscribe && <span className="px-1.5 py-0.5 bg-zinc-100 text-[8px] font-bold tracking-widest uppercase rounded">Mail Sub'd</span>}
+                                                {lead.whatsappSubscribe && <span className="px-1.5 py-0.5 bg-green-50 text-green-600 border border-green-100 text-[8px] font-bold tracking-widest uppercase rounded">WA Sub'd</span>}
+                                            </div>
+
                                             {!isCollapsed && (
                                                 <div className="space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
                                                     <div className="flex items-center gap-2 text-zinc-500">
@@ -283,27 +312,25 @@ const LeadManagement: React.FC = () => {
                             </div>
 
                             {/* Column Pagination */}
-                            {totalPages > 1 && (
-                                <div className="p-4 border-t border-zinc-100 bg-white/50 rounded-b-[2.5rem] flex items-center justify-between">
-                                    <button
-                                        disabled={currentPage === 1}
-                                        onClick={() => setPage(stage, currentPage - 1)}
-                                        className="p-2 hover:bg-zinc-100 rounded-xl transition-all disabled:opacity-20"
-                                    >
-                                        <ChevronLeft className="w-4 h-4" />
-                                    </button>
-                                    <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
-                                        {currentPage} / {totalPages}
-                                    </p>
-                                    <button
-                                        disabled={currentPage === totalPages}
-                                        onClick={() => setPage(stage, currentPage + 1)}
-                                        className="p-2 hover:bg-zinc-100 rounded-xl transition-all disabled:opacity-20"
-                                    >
-                                        <ChevronRight className="w-4 h-4" />
-                                    </button>
-                                </div>
-                            )}
+                            <div className="p-4 border-t border-zinc-100 bg-white/50 rounded-b-[2.5rem] flex items-center justify-between">
+                                <button
+                                    disabled={currentPage === 1}
+                                    onClick={() => setPage(stage, currentPage - 1)}
+                                    className="p-2 hover:bg-zinc-100 rounded-xl transition-all disabled:opacity-20"
+                                >
+                                    <ChevronLeft className="w-4 h-4" />
+                                </button>
+                                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                                    {currentPage} / {totalPages === 0 ? 1 : totalPages}
+                                </p>
+                                <button
+                                    disabled={currentPage >= totalPages}
+                                    onClick={() => setPage(stage, currentPage + 1)}
+                                    className="p-2 hover:bg-zinc-100 rounded-xl transition-all disabled:opacity-20"
+                                >
+                                    <ChevronRight className="w-4 h-4" />
+                                </button>
+                            </div>
                         </div>
                     );
                 })}
@@ -387,6 +414,27 @@ const LeadManagement: React.FC = () => {
                                     value={formData.info}
                                     onChange={e => setFormData({ ...formData, info: e.target.value })}
                                 />
+                            </div>
+
+                            <div className="flex gap-4 p-4 bg-zinc-50 rounded-xl border border-zinc-100">
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        className="w-4 h-4 rounded appearance-none checked:bg-black border border-zinc-300 transition-colors"
+                                        checked={formData.mailSubscribe || false}
+                                        onChange={(e) => setFormData({ ...formData, mailSubscribe: e.target.checked })}
+                                    />
+                                    <span className="text-[10px] font-black uppercase tracking-widest">Mail List</span>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        className="w-4 h-4 rounded appearance-none checked:bg-green-500 border border-zinc-300 transition-colors"
+                                        checked={formData.whatsappSubscribe || false}
+                                        onChange={(e) => setFormData({ ...formData, whatsappSubscribe: e.target.checked })}
+                                    />
+                                    <span className="text-[10px] font-black uppercase tracking-widest">WhatsApp List</span>
+                                </label>
                             </div>
                         </div>
 

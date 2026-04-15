@@ -148,115 +148,116 @@ const UserManagement: React.FC = () => {
             )}
 
             <div className="bg-white border border-zinc-200 rounded-[2.5rem] overflow-hidden shadow-sm">
-                <table className="w-full text-left border-collapse">
-                    <thead>
-                        <tr className="bg-zinc-50/50 border-b border-zinc-100">
-                            <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-zinc-400">Collaborator</th>
-                            <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-zinc-400">Security Rank</th>
-                            <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-zinc-400">Lifecycle Status</th>
-                            <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-zinc-400 text-right">Operations</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-zinc-100">
-                        {users.map(user => (
-                            <tr key={user.id} className="group hover:bg-zinc-50/30 transition-colors">
-                                <td className="px-8 py-6">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center font-black text-xs group-hover:bg-black group-hover:text-white transition-all capitalize">
-                                            {user.name.substring(0, 1)}
-                                        </div>
-                                        <div>
-                                            <p className="font-black italic uppercase tracking-tighter text-sm">{user.name}</p>
-                                            <div className="flex items-center gap-1.5 text-zinc-400">
-                                                <Mail className="w-3 h-3" />
-                                                <p className="text-[10px] font-bold">{user.email}</p>
+                <div className="overflow-x-auto w-full">
+                    <table className="w-full text-left border-collapse min-w-[800px]">
+                        <thead>
+                            <tr className="bg-zinc-50/50 border-b border-zinc-100">
+                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-zinc-400">Collaborator</th>
+                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-zinc-400">Security Rank</th>
+                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-zinc-400">Lifecycle Status</th>
+                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-zinc-400 text-right">Operations</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-zinc-100">
+                            {users.map(user => (
+                                <tr key={user.id} className="group hover:bg-zinc-50/30 transition-colors">
+                                    <td className="px-8 py-6">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center font-black text-xs group-hover:bg-black group-hover:text-white transition-all capitalize">
+                                                {user.name.substring(0, 1)}
+                                            </div>
+                                            <div>
+                                                <p className="font-black italic uppercase tracking-tighter text-sm">{user.name}</p>
+                                                <div className="flex items-center gap-1.5 text-zinc-400">
+                                                    <Mail className="w-3 h-3" />
+                                                    <p className="text-[10px] font-bold">{user.email}</p>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                </td>
-                                <td className="px-8 py-6">
-                                    <div className="flex items-center gap-2">
-                                        <Shield className="w-3.5 h-3.5 text-zinc-300" />
-                                        <span className="text-[10px] font-black uppercase tracking-widest">{user.role}</span>
-                                    </div>
-                                </td>
-                                <td className="px-8 py-6">
-                                    <div className="flex items-center gap-2">
-                                        {user.status === UserStatus.ACTIVE && <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />}
-                                        {user.status === UserStatus.PENDING && <Clock className="w-3.5 h-3.5 text-amber-500" />}
-                                        {user.status === UserStatus.SUSPENDED && <Ban className="w-3.5 h-3.5 text-red-500" />}
-                                        <span className={`text-[10px] font-black uppercase tracking-widest ${user.status === UserStatus.ACTIVE ? 'text-green-600' :
-                                            user.status === UserStatus.PENDING ? 'text-amber-600' : 'text-red-600'
-                                            }`}>
-                                            {user.status}
-                                        </span>
-                                    </div>
-                                </td>
-                                <td className="px-8 py-6">
-                                    <div className="flex justify-end items-center gap-2">
-                                        {user.status === UserStatus.PENDING && (
-                                            <button
-                                                onClick={() => setEnrollmentUser(user)}
-                                                className="p-2 bg-zinc-50 hover:bg-black hover:text-white rounded-lg transition-all text-zinc-400 flex items-center gap-2 px-3"
-                                            >
-                                                <QrCode className="w-3.5 h-3.5" />
-                                                <span className="text-[8px] font-black uppercase tracking-widest">Enroll</span>
-                                            </button>
-                                        )}
-                                        <div className="flex items-center gap-1 border-l border-zinc-100 pl-2">
-                                            <button
-                                                onClick={() => setConfirmAction({
-                                                    id: user.id,
-                                                    type: 'RESET_TOTP',
-                                                    title: 'Reset Credentials',
-                                                    message: 'This will invalidate current credentials and require a new setup. Continue?'
-                                                })}
-                                                className="p-2 hover:bg-zinc-100 rounded-lg text-zinc-400 hover:text-black transition-colors"
-                                                title="Reset Key"
-                                            >
-                                                <RefreshCcw className="w-4 h-4" />
-                                            </button>
-                                            <button
-                                                onClick={() => setConfirmAction({
-                                                    id: user.id,
-                                                    type: user.status === UserStatus.SUSPENDED ? 'UNSUSPEND' : 'SUSPEND',
-                                                    title: user.status === UserStatus.SUSPENDED ? 'Restore Account' : 'Suspend Account',
-                                                    message: user.status === UserStatus.SUSPENDED
-                                                        ? 'Are you sure you want to restore access for this user?'
-                                                        : 'Suspending this account will block all platform access immediately.'
-                                                })}
-                                                className={`p-2 hover:bg-zinc-100 rounded-lg transition-colors ${user.status === UserStatus.SUSPENDED ? 'text-green-500' : 'text-zinc-400 hover:text-amber-500'}`}
-                                                title={user.status === UserStatus.SUSPENDED ? 'Restore' : 'Suspend'}
-                                            >
-                                                <Ban className="w-4 h-4" />
-                                            </button>
-                                            <button
-                                                onClick={() => setConfirmAction({
-                                                    id: user.id,
-                                                    type: 'DELETE',
-                                                    title: 'Terminate Account',
-                                                    message: 'CRITICAL: This will permanently delete the collaborator record. This action is irreversible.'
-                                                })}
-                                                className="p-2 hover:bg-zinc-100 rounded-lg text-zinc-400 hover:text-red-500 transition-colors"
-                                                title="Delete"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
+                                    </td>
+                                    <td className="px-8 py-6">
+                                        <div className="flex items-center gap-2">
+                                            <Shield className="w-3.5 h-3.5 text-zinc-300" />
+                                            <span className="text-[10px] font-black uppercase tracking-widest">{user.role}</span>
                                         </div>
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-                {users.length === 0 && !loading && !error && (
-                    <div className="p-20 text-center">
-                        <Shield className="w-12 h-12 text-zinc-100 mx-auto mb-4" />
-                        <p className="text-xs font-black uppercase tracking-widest text-zinc-300">No personnel records found</p>
-                    </div>
-                )}
+                                    </td>
+                                    <td className="px-8 py-6">
+                                        <div className="flex items-center gap-2">
+                                            {user.status === UserStatus.ACTIVE && <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />}
+                                            {user.status === UserStatus.PENDING && <Clock className="w-3.5 h-3.5 text-amber-500" />}
+                                            {user.status === UserStatus.SUSPENDED && <Ban className="w-3.5 h-3.5 text-red-500" />}
+                                            <span className={`text-[10px] font-black uppercase tracking-widest ${user.status === UserStatus.ACTIVE ? 'text-green-600' :
+                                                user.status === UserStatus.PENDING ? 'text-amber-600' : 'text-red-600'
+                                                }`}>
+                                                {user.status}
+                                            </span>
+                                        </div>
+                                    </td>
+                                    <td className="px-8 py-6">
+                                        <div className="flex justify-end items-center gap-2">
+                                            {user.status === UserStatus.PENDING && (
+                                                <button
+                                                    onClick={() => setEnrollmentUser(user)}
+                                                    className="p-2 bg-zinc-50 hover:bg-black hover:text-white rounded-lg transition-all text-zinc-400 flex items-center gap-2 px-3"
+                                                >
+                                                    <QrCode className="w-3.5 h-3.5" />
+                                                    <span className="text-[8px] font-black uppercase tracking-widest">Enroll</span>
+                                                </button>
+                                            )}
+                                            <div className="flex items-center gap-1 border-l border-zinc-100 pl-2">
+                                                <button
+                                                    onClick={() => setConfirmAction({
+                                                        id: user.id,
+                                                        type: 'RESET_TOTP',
+                                                        title: 'Reset Credentials',
+                                                        message: 'This will invalidate current credentials and require a new setup. Continue?'
+                                                    })}
+                                                    className="p-2 hover:bg-zinc-100 rounded-lg text-zinc-400 hover:text-black transition-colors"
+                                                    title="Reset Key"
+                                                >
+                                                    <RefreshCcw className="w-4 h-4" />
+                                                </button>
+                                                <button
+                                                    onClick={() => setConfirmAction({
+                                                        id: user.id,
+                                                        type: user.status === UserStatus.SUSPENDED ? 'UNSUSPEND' : 'SUSPEND',
+                                                        title: user.status === UserStatus.SUSPENDED ? 'Restore Account' : 'Suspend Account',
+                                                        message: user.status === UserStatus.SUSPENDED
+                                                            ? 'Are you sure you want to restore access for this user?'
+                                                            : 'Suspending this account will block all platform access immediately.'
+                                                    })}
+                                                    className={`p-2 hover:bg-zinc-100 rounded-lg transition-colors ${user.status === UserStatus.SUSPENDED ? 'text-green-500' : 'text-zinc-400 hover:text-amber-500'}`}
+                                                    title={user.status === UserStatus.SUSPENDED ? 'Restore' : 'Suspend'}
+                                                >
+                                                    <Ban className="w-4 h-4" />
+                                                </button>
+                                                <button
+                                                    onClick={() => setConfirmAction({
+                                                        id: user.id,
+                                                        type: 'DELETE',
+                                                        title: 'Terminate Account',
+                                                        message: 'CRITICAL: This will permanently delete the collaborator record. This action is irreversible.'
+                                                    })}
+                                                    className="p-2 hover:bg-zinc-100 rounded-lg text-zinc-400 hover:text-red-500 transition-colors"
+                                                    title="Delete"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
             </div>
-
+            {users.length === 0 && !loading && !error && (
+                <div className="p-20 text-center">
+                    <Shield className="w-12 h-12 text-zinc-100 mx-auto mb-4" />
+                    <p className="text-xs font-black uppercase tracking-widest text-zinc-300">No personnel records found</p>
+                </div>
+            )}
             {/* Ingestion Modal */}
             <GenericModal
                 isOpen={isAddModalOpen}
@@ -327,36 +328,40 @@ const UserManagement: React.FC = () => {
             </GenericModal>
 
             {/* Enrollment Simulation */}
-            {enrollmentUser && (
-                <UserEnrollmentModal
-                    isOpen={!!enrollmentUser}
-                    user={enrollmentUser}
-                    token={enrollmentToken}
-                    onClose={() => {
-                        setEnrollmentUser(null);
-                        setEnrollmentToken(undefined);
-                    }}
-                    onActivated={(id) => {
-                        setUsers(prev => prev.map(u => u.id === id ? { ...u, status: UserStatus.ACTIVE } : u));
-                        setEnrollmentUser(null);
-                        setEnrollmentToken(undefined);
-                    }}
-                />
-            )}
+            {
+                enrollmentUser && (
+                    <UserEnrollmentModal
+                        isOpen={!!enrollmentUser}
+                        user={enrollmentUser}
+                        token={enrollmentToken}
+                        onClose={() => {
+                            setEnrollmentUser(null);
+                            setEnrollmentToken(undefined);
+                        }}
+                        onActivated={(id) => {
+                            setUsers(prev => prev.map(u => u.id === id ? { ...u, status: UserStatus.ACTIVE } : u));
+                            setEnrollmentUser(null);
+                            setEnrollmentToken(undefined);
+                        }}
+                    />
+                )
+            }
 
             {/* Operation Confirmation */}
-            {confirmAction && (
-                <GenericConfirmModal
-                    isOpen={!!confirmAction}
-                    onClose={() => setConfirmAction(null)}
-                    onConfirm={handleConfirmAction}
-                    title={confirmAction.title}
-                    message={confirmAction.message}
-                    confirmLabel={confirmAction.type === 'DELETE' ? 'Execute Delete' : 'Confirm Operation'}
-                    variant={confirmAction.type === 'DELETE' ? 'danger' : 'info'}
-                />
-            )}
-        </div>
+            {
+                confirmAction && (
+                    <GenericConfirmModal
+                        isOpen={!!confirmAction}
+                        onClose={() => setConfirmAction(null)}
+                        onConfirm={handleConfirmAction}
+                        title={confirmAction.title}
+                        message={confirmAction.message}
+                        confirmLabel={confirmAction.type === 'DELETE' ? 'Execute Delete' : 'Confirm Operation'}
+                        variant={confirmAction.type === 'DELETE' ? 'danger' : 'info'}
+                    />
+                )
+            }
+        </div >
     );
 };
 

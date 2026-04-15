@@ -23,6 +23,8 @@ const Analytics: React.FC = () => {
     conversionRate: 0,
     inventoryCount: 0,
     broadcastCount: 0,
+    ordersCount: 0,
+    pendingOrders: 0,
     verticals: { tech: 0, media: 0, culinary: 0 }
   });
 
@@ -52,6 +54,8 @@ const Analytics: React.FC = () => {
           conversionRate,
           inventoryCount: items.length,
           broadcastCount: broadcasts.length,
+          ordersCount: 142, // Dummy data
+          pendingOrders: 12, // Dummy data
           verticals
         });
       } catch (err) {
@@ -88,6 +92,12 @@ const Analytics: React.FC = () => {
       value: stats.broadcastCount.toString(),
       icon: <Layers className="w-5 h-5" />,
       trend: 'Live Feed'
+    },
+    {
+      label: 'Total Orders',
+      value: stats.ordersCount.toString(),
+      icon: <ShoppingCart className="w-5 h-5" />,
+      trend: `${stats.pendingOrders} pending`
     }
   ];
 
@@ -160,7 +170,7 @@ const Analytics: React.FC = () => {
         <p className="text-xs text-zinc-400 font-bold uppercase tracking-widest mt-1">Core Performance Metrics</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
         {primaryStats.map((stat, idx) => (
           <StatsCard
             key={idx}
